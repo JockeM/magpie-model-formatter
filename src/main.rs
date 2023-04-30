@@ -1,6 +1,6 @@
-mod formatt;
+mod format;
 
-use formatt::format_model_file;
+use format::format_model_file;
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
