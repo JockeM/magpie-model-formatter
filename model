@@ -1,0 +1,9 @@
+# part 1
+Start  [no_prio]   use invitation link     ->   At login view
+Start           [prio]          use visits link             ->      At login view
+
+# gate view should not be used for this flow anymore
+#At gate view                    continue in browser         ->      At login view
+At login view   [visits link]   enter details and proceed   ->      At my cases 
+At login view   [invite link]   enter details and proceed   ->      In lobby view device permission
+At my cases                     click card in list          ->      Appointment details 
