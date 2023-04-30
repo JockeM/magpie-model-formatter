@@ -1,54 +1,47 @@
-use std::fs;
-
-pub fn format_model_file(file_path: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let contents = fs::read_to_string(file_path)?;
+pub fn format_model_file(contents: String) -> Result<String, Box<dyn std::error::Error>> {
     let lines = parse_file_contents(&contents);
     let max_widths = calculate_max_widths(&lines);
     let formatted_output = generate_aligned_output(&lines, &max_widths);
     Ok(formatted_output)
 }
 
+// TODO: better typed, keep comments etc
 fn parse_file_contents(contents: &str) -> Vec<Vec<&str>> {
-    let mut lines = Vec::new();
+    contents
+        .lines()
+        .map(|line| line.trim())
+        .filter_map(|line| {
+            if line.starts_with('#') {
+                return None;
+            }
 
-    for line in contents.lines() {
-        if !line.trim().starts_with('#') {
-            let mut parts: Vec<&str> = line
-                .trim()
+            let mut parts = line
                 .split("  ")
-                .map(|x| x.trim())
-                .filter(|x| !x.is_empty())
-                .collect();
+                .map(|part| part.trim())
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<&str>>();
 
             if parts.len() > 1 && !parts[1].starts_with('[') {
                 parts.insert(1, "");
             }
 
-            lines.push(parts);
-        }
-    }
-
-    lines
+            Some(parts)
+        })
+        .collect()
 }
 
 fn calculate_max_widths(lines: &[Vec<&str>]) -> Vec<usize> {
-    let num_columns = lines.iter().map(|p| p.len()).max().unwrap_or(0);
-    let mut max_widths = vec![0; num_columns];
-
-    for column in 0..num_columns {
-        let mut max_width = 0;
-        for parts in lines {
-            if let Some(part) = parts.get(column) {
-                let len = part.len();
-                if len > max_width {
-                    max_width = len;
-                }
-            }
-        }
-        max_widths[column] = max_width;
-    }
-
-    max_widths
+    let num_columns = lines.iter().map(Vec::len).max().unwrap_or(0);
+    (0..num_columns)
+        .map(|column| {
+            lines
+                .iter()
+                .flat_map(|parts| parts.get(column))
+                .map(|part| part.len())
+                .max()
+                .unwrap_or(0)
+        })
+        .collect()
 }
 
 fn generate_aligned_output(lines: &[Vec<&str>], max_widths: &[usize]) -> String {
@@ -57,13 +50,10 @@ fn generate_aligned_output(lines: &[Vec<&str>], max_widths: &[usize]) -> String 
     for parts in lines {
         for (i, part) in parts.iter().enumerate() {
             output.push_str(part);
-            if i != parts.len() - 1 {
-                let padding = {
-                    let max_width = max_widths.get(i).unwrap();
-                    let len = part.len();
-                    " ".repeat(max_width.saturating_sub(len))
-                };
 
+            if i != parts.len() - 1 {
+                let max_width = max_widths.get(i).unwrap_or(&0);
+                let padding = " ".repeat(max_width.saturating_sub(part.len()));
                 output.push_str(&padding);
                 output.push_str("  ");
             }
