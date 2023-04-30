@@ -1,15 +1,15 @@
-pub fn format_model_file(contents: String) -> Result<String, Box<dyn std::error::Error>> {
-    let lines = parse_file_contents(&contents);
+pub fn format_model_file(contents: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let lines = parse_file_contents(contents);
     let max_widths = calculate_max_widths(&lines);
     let formatted_output = generate_aligned_output(&lines, &max_widths);
     Ok(formatted_output)
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Line {
+enum Line<'a> {
     Empty,
-    Comment(String),
-    Model(Vec<String>),
+    Comment(&'a str),
+    Model(Vec<&'a str>),
 }
 
 fn parse_file_contents(contents: &str) -> Vec<Line> {
@@ -21,17 +21,17 @@ fn parse_file_contents(contents: &str) -> Vec<Line> {
                 return Line::Empty;
             }
             if line.starts_with('#') {
-                return Line::Comment(line.to_string());
+                return Line::Comment(line);
             }
 
             let mut parts = line
                 .split("  ")
-                .map(|part| part.trim().to_string())
+                .map(|part| part.trim())
                 .filter(|part| !part.is_empty())
-                .collect::<Vec<String>>();
+                .collect::<Vec<_>>();
 
             if parts.len() > 1 && !parts[1].starts_with('[') {
-                parts.insert(1, "".to_string());
+                parts.insert(1, "");
             }
 
             Line::Model(parts)
@@ -45,11 +45,11 @@ fn calculate_max_widths(lines: &[Line]) -> Vec<usize> {
         .filter_map(|line| match line {
             Line::Empty => None,
             Line::Comment(_) => None,
-            Line::Model(parts) => Some(parts.clone()),
+            Line::Model(parts) => Some(parts),
         })
         .collect::<Vec<_>>();
 
-    let num_columns = parts.iter().map(Vec::len).max().unwrap_or(0);
+    let num_columns = parts.iter().map(|x| x.len()).max().unwrap_or(0);
     (0..num_columns)
         .map(|column| {
             parts
@@ -96,20 +96,10 @@ mod tests {
     #[test]
     fn test_generate_aligned_output() {
         let lines = vec![
-            Line::Comment("# This is a comment".to_string()),
+            Line::Comment("# This is a comment"),
             Line::Empty,
-            Line::Model(vec![
-                "Model A".to_string(),
-                "[some description]".to_string(),
-                "->".to_string(),
-                "false".to_string(),
-            ]),
-            Line::Model(vec![
-                "Model B".to_string(),
-                "12345678".to_string(),
-                "->".to_string(),
-                "true".to_string(),
-            ]),
+            Line::Model(vec!["Model A", "[some description]", "->", "false"]),
+            Line::Model(vec!["Model B", "12345678", "->", "true"]),
         ];
 
         let max_widths = calculate_max_widths(&lines);

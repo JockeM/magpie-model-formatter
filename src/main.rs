@@ -48,7 +48,7 @@ fn process_file(
     num_files_processed: &mut usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let contents = fs::read_to_string(file_path)?;
-    let string = format_model_file(contents)?;
+    let string = format_model_file(contents.as_ref())?;
     write_to_file(string.as_ref(), file_path)?;
     *num_files_processed += 1;
     println!("Formatted file: {:?}", file_path);
