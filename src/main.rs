@@ -2,8 +2,8 @@ mod format;
 
 use format::format_model_file;
 use std::env;
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs::{self, OpenOptions};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -47,11 +47,23 @@ fn process_file(
     file_path: &Path,
     num_files_processed: &mut usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let contents = fs::read_to_string(file_path)?;
-    let string = format_model_file(contents.as_ref())?;
-    write_to_file(string.as_ref(), file_path)?;
+    let file = OpenOptions::new().read(true).open(file_path).unwrap();
+    let mut reader = BufReader::new(&file);
+    let mut buffer = String::new();
+    reader.read_to_string(&mut buffer).unwrap();
+
+    let string = format_model_file(buffer.as_ref())?;
+
+    let file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(file_path)
+        .unwrap();
+    let mut writer = BufWriter::new(&file);
+    writer.write_all(string.as_bytes())?;
+
     *num_files_processed += 1;
-    println!("Formatted file: {:?}", file_path);
+    println!("Formatted file: {}", file_path.display());
 
     Ok(())
 }
@@ -75,11 +87,5 @@ fn process_directory(
         }
     }
 
-    Ok(())
-}
-
-fn write_to_file(contents: &str, file_path: &Path) -> Result<(), std::io::Error> {
-    let mut file = File::create(file_path)?;
-    file.write_all(contents.as_bytes())?;
     Ok(())
 }
