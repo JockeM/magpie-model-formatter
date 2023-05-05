@@ -9,7 +9,7 @@ pub fn format_model_file(contents: &str) -> Result<String, Box<dyn std::error::E
 enum Line<'a> {
     Empty,
     Comment(&'a str),
-    Model(Vec<&'a str>),
+    Model([&'a str; 5]),
 }
 
 fn parse_file_contents(contents: &str) -> Vec<Line> {
@@ -20,21 +20,24 @@ fn parse_file_contents(contents: &str) -> Vec<Line> {
             if line.is_empty() {
                 return Line::Empty;
             }
+
             if line.starts_with('#') {
                 return Line::Comment(line);
             }
 
-            let mut parts = line
-                .split("  ")
+            let parts = line
+                .split('\t')
+                .flat_map(|p| p.split("  "))
                 .map(|part| part.trim())
                 .filter(|part| !part.is_empty())
                 .collect::<Vec<_>>();
 
-            if parts.len() > 1 && !parts[1].starts_with('[') {
-                parts.insert(1, "");
+            match parts.len() {
+                3 => Line::Model([parts[0], "", "", parts[1], parts[2]]),
+                4 => Line::Model([parts[0], "", parts[1], parts[2], parts[3]]),
+                5 => Line::Model([parts[0], parts[1], parts[2], parts[3], parts[4]]),
+                _ => panic!("got len {} with parts {:?}", parts.len(), parts),
             }
-
-            Line::Model(parts)
         })
         .collect()
 }
@@ -98,15 +101,23 @@ mod tests {
         let lines = vec![
             Line::Comment("# This is a comment"),
             Line::Empty,
-            Line::Model(vec!["Model A", "[some description]", "->", "false"]),
-            Line::Model(vec!["Model B", "12345678", "->", "true"]),
+            Line::Model([
+                "Model A",
+                "[some description]",
+                "'hello world'",
+                "->",
+                "false",
+            ]),
+            Line::Model(["Model B", "", "some description", "->", "false"]),
+            Line::Model(["Model C", "", "", "->", "true"]),
         ];
 
         let max_widths = calculate_max_widths(&lines);
         let expected_output = r#"# This is a comment
 
-Model A  [some description]  ->  false
-Model B  12345678            ->  true
+Model A  [some description]  'hello world'     ->  false
+Model B                      some description  ->  true
+Model C                                        ->  true
 "#;
 
         let actual_output = generate_aligned_output(&lines, &max_widths);
