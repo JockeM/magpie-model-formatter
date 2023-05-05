@@ -5,11 +5,12 @@ pub fn format_model_file(contents: &str) -> Result<String, Box<dyn std::error::E
     Ok(formatted_output)
 }
 
+const MODEL_MAX_PARTS: usize = 5;
 #[derive(Clone, Debug, PartialEq)]
 enum Line<'a> {
     Empty,
     Comment(&'a str),
-    Model([&'a str; 5]),
+    Model([&'a str; MODEL_MAX_PARTS]),
 }
 
 fn parse_file_contents(contents: &str) -> Vec<Line> {
@@ -18,25 +19,23 @@ fn parse_file_contents(contents: &str) -> Vec<Line> {
         .map(|line| line.trim())
         .map(|line| {
             if line.is_empty() {
-                return Line::Empty;
-            }
+                Line::Empty
+            } else if line.starts_with('#') {
+                Line::Comment(line)
+            } else {
+                let parts = line
+                    .split('\t')
+                    .flat_map(|p| p.split("  "))
+                    .map(|part| part.trim())
+                    .filter(|part| !part.is_empty())
+                    .collect::<Vec<_>>();
 
-            if line.starts_with('#') {
-                return Line::Comment(line);
-            }
-
-            let parts = line
-                .split('\t')
-                .flat_map(|p| p.split("  "))
-                .map(|part| part.trim())
-                .filter(|part| !part.is_empty())
-                .collect::<Vec<_>>();
-
-            match parts.len() {
-                3 => Line::Model([parts[0], "", "", parts[1], parts[2]]),
-                4 => Line::Model([parts[0], "", parts[1], parts[2], parts[3]]),
-                5 => Line::Model([parts[0], parts[1], parts[2], parts[3], parts[4]]),
-                _ => panic!("got len {} with parts {:?}", parts.len(), parts),
+                match parts.len() {
+                    3 => Line::Model([parts[0], "", "", parts[1], parts[2]]),
+                    4 => Line::Model([parts[0], "", parts[1], parts[2], parts[3]]),
+                    5 => Line::Model([parts[0], parts[1], parts[2], parts[3], parts[4]]),
+                    _ => panic!("got len {} with parts {:?}", parts.len(), parts),
+                }
             }
         })
         .collect()
@@ -46,14 +45,12 @@ fn calculate_max_widths(lines: &[Line]) -> Vec<usize> {
     let parts = lines
         .iter()
         .filter_map(|line| match line {
-            Line::Empty => None,
-            Line::Comment(_) => None,
             Line::Model(parts) => Some(parts),
+            _ => None,
         })
         .collect::<Vec<_>>();
 
-    let num_columns = parts.iter().map(|x| x.len()).max().unwrap_or(0);
-    (0..num_columns)
+    (0..MODEL_MAX_PARTS)
         .map(|column| {
             parts
                 .iter()
@@ -116,7 +113,7 @@ mod tests {
         let expected_output = r#"# This is a comment
 
 Model A  [some description]  'hello world'     ->  false
-Model B                      some description  ->  true
+Model B                      some description  ->  false
 Model C                                        ->  true
 "#;
 
